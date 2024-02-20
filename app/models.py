@@ -3,7 +3,7 @@ from sqlalchemy.sql.sqltypes import TIMESTAMP
 from sqlalchemy.sql.expression import text
 from .database import Base
 
-
+# SQLAlchemy model
 class Post(Base):
     __tablename__ = "posts"
 
