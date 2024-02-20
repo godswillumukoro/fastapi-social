@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, status, HTTPException
+from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body # used for handling request bodies in API endpoints
 from pydantic import BaseModel
 from typing import Optional
@@ -6,9 +6,15 @@ from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor # give column names from DB
 import time
+from . import models
+from sqlalchemy.orm import Session
+from .database import engine, get_db
 
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+
 
 class Post(BaseModel):
     title: str
@@ -32,13 +38,6 @@ while True:
         print("Error: ", error)
         time.sleep(2)
 
-
-postsStore = [
-    {"id": 1, "title": "God Did", "content": "DJ Khalid's 13th studio album","published": True, "rating": 5},
-    {"id": 2, "title": "Magic 3", "content": "Nas' 17th studio album","published": True, "rating": 5},
-    {"id": 3, "title": "Vultures 1", "content": "Vultures 1 is a collaborative studio album by the American rapper Kanye West and singer Ty Dolla Sign, collectively billed as ¥$", "published": True, "rating": 5},
-    ]
-
 def find_post(post_id):
     for post in postsStore:
         if post["id"] == post_id:
@@ -52,6 +51,12 @@ def find_post_index(post_id):
 @app.get("/")
 def root():
     return {"message": "Welcome to my API"}
+
+@app.get('/sqlalchemy')
+def test_post(db: Session = Depends(get_db)):
+    post = db.query(models.Post).all()
+    return {"data": post}
+
 
 @app.get('/posts')
 def get_posts():
