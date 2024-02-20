@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body # used for handling request bodies in API endpoints
-from typing import Optional
+from typing import Optional, List
 from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor # give column names from DB
@@ -46,14 +46,14 @@ def find_post_index(post_id):
 def root():
     return {"message": "Welcome to my API"}
 
-@app.get('/posts')
+@app.get('/posts', response_model=List[schemas.PostResponse])
 def get_posts(db: Session = Depends(get_db)):
     # cursor.execute(""" SELECT * FROM posts """)
     # posts = cursor.fetchall()
     posts = db.query(models.Post).all()
-    return {"data": posts}
+    return posts
 
-@app.get("/posts/latest")
+@app.get("/posts/latest", response_model=List[schemas.PostResponse])
 def get_latest_post():
     try:
         cursor.execute(""" SELECT * FROM posts ORDER BY posts.id DESC LIMIT 2 """)
@@ -62,12 +62,12 @@ def get_latest_post():
         if not latest_posts:
             raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail=f"Post with id: {id} not found")
 
-        return {"data": latest_posts}
+        return latest_posts
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@app.get("/posts/{id}")
+@app.get("/posts/{id}", response_model=schemas.PostResponse)
 def get_post(id: int, db: Session = Depends(get_db)): # path operator function
     try:
         # cursor.execute(""" SELECT * FROM posts WHERE id= %s """, (id,))
@@ -77,12 +77,12 @@ def get_post(id: int, db: Session = Depends(get_db)): # path operator function
             raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = f"Post with id: {id} not found")
         #     response.status_code = status.HTTP_404_NOT_FOUND
         #     return{"message": f"post: {id} not found"}
-        return {"data": post}
+        return post
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@app.post("/posts", status_code = status.HTTP_201_CREATED)
+@app.post("/posts", status_code = status.HTTP_201_CREATED, response_model=schemas.PostResponse)
 def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     # cursor.execute(""" INSERT INTO posts (title, content, is_published) VALUES (%s, %s, %s) RETURNING * """, (post.title, post.content, post.is_published))
 
@@ -96,7 +96,7 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_post)
 
-    return {"data": new_post}
+    return new_post
 
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int, db: Session = Depends(get_db)):
@@ -118,7 +118,7 @@ def delete_post(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@app.put("/posts/{id}")
+@app.put("/posts/{id}", response_model=schemas.PostResponse)
 def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
     try:
         # cursor.execute(""" UPDATE posts SET title = %s, content = %s, is_published = %s WHERE id = %s RETURNING * """,
@@ -134,7 +134,7 @@ def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)
 
         updated_post.update(post.dict(), synchronize_session = False)
         db.commit()
-        return {"data": updated_post.first()}
+        return updated_post.first()
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
