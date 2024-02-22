@@ -5,16 +5,15 @@ from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor # give column names from DB
 import time
-from . import models, schemas
+from . import models, schemas, utils
 from sqlalchemy.orm import Session
 from .database import engine, get_db
+from .routers import post, user
+
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-
-
 
 while True:
     try:
@@ -42,99 +41,9 @@ def find_post_index(post_id):
         if post["id"] == post_id:
             return i
 
+app.include_router(post.router)
+app.include_router(user.router)
+
 @app.get("/")
 def root():
     return {"message": "Welcome to my API"}
-
-@app.get('/posts', response_model=List[schemas.PostResponse])
-def get_posts(db: Session = Depends(get_db)):
-    # cursor.execute(""" SELECT * FROM posts """)
-    # posts = cursor.fetchall()
-    posts = db.query(models.Post).all()
-    return posts
-
-@app.get("/posts/latest", response_model=List[schemas.PostResponse])
-def get_latest_post():
-    try:
-        cursor.execute(""" SELECT * FROM posts ORDER BY posts.id DESC LIMIT 2 """)
-        latest_posts = cursor.fetchall()
-
-        if not latest_posts:
-            raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail=f"Post with id: {id} not found")
-
-        return latest_posts
-
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-@app.get("/posts/{id}", response_model=schemas.PostResponse)
-def get_post(id: int, db: Session = Depends(get_db)): # path operator function
-    try:
-        # cursor.execute(""" SELECT * FROM posts WHERE id= %s """, (id,))
-        # post = cursor.fetchone()
-        post = db.query(models.Post).filter(models.Post.id == id).first()
-        if not post:
-            raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = f"Post with id: {id} not found")
-        #     response.status_code = status.HTTP_404_NOT_FOUND
-        #     return{"message": f"post: {id} not found"}
-        return post
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-
-@app.post("/posts", status_code = status.HTTP_201_CREATED, response_model=schemas.PostResponse)
-def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
-    # cursor.execute(""" INSERT INTO posts (title, content, is_published) VALUES (%s, %s, %s) RETURNING * """, (post.title, post.content, post.is_published))
-
-    # db_connection.commit() # push changes to DB
-
-    # new_post = cursor.fetchone()
-
-    new_post = models.Post(**post.dict())
-    # new_post = models.Post(title = post.title, content = post.content, is_published = post.is_published)
-    db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
-
-    return new_post
-
-@app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int, db: Session = Depends(get_db)):
-    try:
-        # cursor.execute(""" DELETE FROM posts WHERE id= %s RETURNING * """, (id,))
-        # db_connection.commit()
-
-        # del_post = cursor.fetchone()
-
-        del_post = db.query(models.Post).filter(models.Post.id == id)
-
-        if not del_post.first():
-            raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = f"Post with id: {id} not found")
-
-        del_post.delete(synchronize_session = False)
-        db.commit()
-
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-
-@app.put("/posts/{id}", response_model=schemas.PostResponse)
-def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
-    try:
-        # cursor.execute(""" UPDATE posts SET title = %s, content = %s, is_published = %s WHERE id = %s RETURNING * """,
-        #                 (post.title, post.content, post.is_published, (id,)))
-        # db_connection.commit()
-
-        # updated_post = cursor.fetchone()
-
-        updated_post = db.query(models.Post).filter(models.Post.id == id)
-
-        if not updated_post.first():
-                raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = f"Post with id: {id} not found")
-
-        updated_post.update(post.dict(), synchronize_session = False)
-        db.commit()
-        return updated_post.first()
-
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
